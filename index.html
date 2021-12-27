@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script id="bookmarkletscript">
+    
+        function initBookmarklet()
+        {
+            if (window.getRateFlixMain)
+            {
+                window.getRateFlixMain();
+                return;
+            }
+
+            console.log("Initbookmarklet");
+            var s = document.createElement("script");
+            s.type = "module";
+            s.src = "http://localhost:8000/maincode.js";
+
+            document.body.appendChild(s);
+        }
+
+    </script>
+    <script>
+        function run()
+        {
+            console.log("run");
+            var elem = document.getElementById("bookmarkletscript");
+            var data = elem.innerHTML;
+
+            data = "void((function() { " + data + "\ninitBookmarklet(); })())";
+
+            elem = document.getElementById("bookmarkletlink");
+            elem.setAttribute("href", "javascript:" + encodeURIComponent(data));
+        }
+    </script>
+</head>
+<body onload="run()">
+    <a href="javascript:void(0)" id="bookmarkletlink">RateFlix</a></p>    
+</body>
+</html>
