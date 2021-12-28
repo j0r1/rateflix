@@ -78,7 +78,13 @@ function handleMovieRequest(response, request)
         console.log("Received:");
         console.log(postData);
 
-        response.end('{ "imdb": 99, "rotten": 98 }');
+        lookupIMDB(postData)
+        .then((score) => {
+            response.end(JSON.stringify({"imdb": score}));
+        })
+        .catch((err) => {
+            response.end(JSON.stringify({"imdb": err}));
+        })
     });
 }
 
@@ -87,7 +93,7 @@ function main()
     console.log("Server started");
 }
 
-//server.listen(8000, main);
+server.listen(8000, main);
 
 // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
 function fixedEncodeURIComponent(str) {
@@ -100,7 +106,7 @@ function lookupIMDB(name)
 {
     return new Promise((resolve, reject) => {
         let url = "https://www.imdb.com/find?q=" + fixedEncodeURIComponent(name) + "&s=tt&exact=true";
-        //console.log(url);
+        console.log(url);
         
         fetch(url)
         .then((response) => response.text())
@@ -113,7 +119,7 @@ function lookupIMDB(name)
                 let titleHref = a.getAttribute("href");
 
                 let url = "https://www.imdb.com/" + titleHref ;
-                //console.log(url);
+                console.log(url);
 
                 fetch(url)
                 .then((response) => response.text())
@@ -160,6 +166,6 @@ function lookupIMDB(name)
     })
 }
 
-lookupIMDB("Don't look up")
-.then(score => console.log("Score: " + score))
-.catch(err => console.log("Error: " + err))
+//lookupIMDB("Don't look up")
+//.then(score => console.log("Score: " + score))
+//.catch(err => console.log("Error: " + err))
