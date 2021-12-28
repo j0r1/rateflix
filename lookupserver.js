@@ -79,13 +79,29 @@ function handleMovieRequest(response, request)
         console.log("Received:");
         console.log(postData);
 
-        lookupIMDB(postData)
+        let results = { };
+
+        let imdbProm = lookupIMDB(postData)
         .then((score) => {
-            response.end(JSON.stringify({"imdb": score}));
+            results["imdb"] = score;
         })
         .catch((err) => {
-            response.end(JSON.stringify({"imdb": err}));
+            results["imdb"] = err;
         })
+
+        let rottenProm = lookupRottenTomatoes(postData)
+        .then((score) => {
+            results["rotten"] = score;
+        })
+        .catch((err) => {
+            results["rotten"] = err;
+        })
+        
+        Promise.allSettled([imdbProm, rottenProm]).then(() => {
+            response.end(JSON.stringify(results));
+            console.log("Results for " + postData);
+            console.log(results);
+        });
     });
 }
 
@@ -94,7 +110,7 @@ function main()
     console.log("Server started");
 }
 
-//server.listen(8000, main);
+server.listen(8000, main);
 
 // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
 function fixedEncodeURIComponent(str) {
@@ -169,32 +185,9 @@ function lookupIMDB(name)
 
 function lookupRottenTomatoes(name)
 {
-    let url = "https://www.rottentomatoes.com/search?search=" + fixedEncodeURIComponent(name)
-    console.log(url);
+    return new Promise((resolve, reject) => {
 
-    fetch(url, {
-        headers: { 
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-        }
-    })
-    .then((response) => response.text())
-    .then((text) => {
-
-        let dom = new JSDOM(text);
-        let results = dom.window.document.querySelectorAll("search-page-media-row");
-        let url = null;
-        for (let r of results)
-        {
-            let img = r.querySelector("img");
-            let txt = he.decode(img.getAttribute("alt"));
-            if (txt.toLowerCase() == name.toLowerCase()) // Use the first one with complete match
-            {
-                url = img.parentNode.getAttribute("href");
-                break;
-            }
-        }
-
-        // TODO: Check if link found
+        let url = "https://www.rottentomatoes.com/search?search=" + fixedEncodeURIComponent(name)
         console.log(url);
 
         fetch(url, {
@@ -204,23 +197,88 @@ function lookupRottenTomatoes(name)
         })
         .then((response) => response.text())
         .then((text) => {
-            //console.log(text)
 
-            let dom = new JSDOM(text);
-            let scoreBoard = dom.window.document.querySelector("score-board");
-            let audience = scoreBoard.getAttribute("audiencescore");
-            let tomatometer = scoreBoard.getAttribute("tomatometerscore");
+            try
+            {
+                let dom = new JSDOM(text);
+                let results = dom.window.document.querySelectorAll("search-page-media-row");
+                let url = null;
+                for (let r of results)
+                {
+                    let img = r.querySelector("img");
+                    let txt = he.decode(img.getAttribute("alt"));
+                    if (txt.toLowerCase() == name.toLowerCase()) // Use the first one with complete match
+                    {
+                        url = img.parentNode.getAttribute("href");
+                        break;
+                    }
+                }
 
-            let result = {
-                "rotten_tomato": tomatometer,
-                "rotten_audience": audience
+                // TODO: Check if link found
+                console.log(url);
+
+                fetch(url, {
+                    headers: { 
+                        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+                    }
+                })
+                .then((response) => response.text())
+                .then((text) => {
+
+                    //console.log(text);
+
+                    try
+                    {
+                        let dom = new JSDOM(text);
+                        let scoreBoard = dom.window.document.querySelector("score-board");
+                        let tm = "";
+                        let aud = "";
+                        if (scoreBoard)
+                        {
+                            aud = scoreBoard.getAttribute("audiencescore");
+                            tm = scoreBoard.getAttribute("tomatometerscore");
+                        }
+                        else
+                        {
+                            let spans = dom.window.document.querySelectorAll("span");
+
+                            for (let s of spans)
+                            {
+                                let dataqa = s.getAttribute("data-qa");
+                                if (dataqa === "tomatometer")
+                                    tm = s.textContent.trim();
+                                else if (dataqa === "audience-score")
+                                    aud = s.textContent.trim();
+                            }
+                        }
+                        let result = "TM: " + tm + ", AUD: " + aud;
+                        resolve(result);
+                    }
+                    catch(err)
+                    {
+                        reject("Error getting rotten tomatoes scores from page " + url);
+                        console.log(err);
+                    }
+                })
+                .catch((err) => {
+                    reject("Error rotten tomatoes title url " + url);
+                    console.log(err);
+                })
             }
-            console.log(result);
+            catch(err)
+            {
+                reject("Error rotten tomatoes title url from " + url);
+                console.log(err);
+            }
+        })
+        .catch((err) => {
+            reject("Error fetching rotten tomatoes page " + url);
+            console.log(err);
         })
     });
 }
 
-lookupRottenTomatoes("Don't look up")
+//lookupRottenTomatoes("The IT Crowd")
 //.then(score => console.log("Score: " + score))
 //.catch(err => console.log("Error: " + err))
 
