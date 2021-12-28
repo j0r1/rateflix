@@ -1,5 +1,8 @@
 const http = require("http");
 const fs = require("fs");
+const fetch = require("node-fetch"); // npm install node-fetch@2.0
+const jsdom = require("jsdom"); // npm install jsdom
+const { JSDOM } = jsdom;
 
 const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -84,4 +87,79 @@ function main()
     console.log("Server started");
 }
 
-server.listen(8000, main);
+//server.listen(8000, main);
+
+// From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
+function fixedEncodeURIComponent(str) {
+    return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
+        return '%' + c.charCodeAt(0).toString(16);
+    });
+}
+
+function lookupIMDB(name)
+{
+    return new Promise((resolve, reject) => {
+        let url = "https://www.imdb.com/find?q=" + fixedEncodeURIComponent(name) + "&s=tt&exact=true";
+        //console.log(url);
+        
+        fetch(url)
+        .then((response) => response.text())
+        .then((text) => {
+            try
+            {
+                let dom = new JSDOM(text);
+                let td = dom.window.document.querySelector("td.result_text");
+                let a = td.querySelector("a");
+                let titleHref = a.getAttribute("href");
+
+                let url = "https://www.imdb.com/" + titleHref ;
+                //console.log(url);
+
+                fetch(url)
+                .then((response) => response.text())
+                .then((text) => {
+                    try
+                    {
+                        let dom = new JSDOM(text);
+                        let divs = dom.window.document.querySelectorAll("div");
+                        let div = null;
+
+                        for (let d of divs)
+                        {
+                            if (d.getAttribute("data-testid") === "hero-rating-bar__aggregate-rating__score")
+                            {
+                                div = d;
+                                break;
+                            }
+                        }
+
+                        let span = div.querySelector("span");
+                        resolve(span.textContent);
+                    }
+                    catch(err)
+                    {
+                        reject("Error getting imdb score from page " + url);
+                        console.log(err);
+                    }
+                })
+                .catch((err) => {
+                    reject("Error fetching imdb title url " + url);
+                    console.log(err);
+                })
+            }
+            catch(err)
+            {
+                reject("Error getting imdb title url from " + url);
+                console.log(err);
+            }
+        })
+        .catch((err) => {
+            reject("Error fetching imdb page " + url);
+            console.log(err);
+        })
+    })
+}
+
+lookupIMDB("Don't look up")
+.then(score => console.log("Score: " + score))
+.catch(err => console.log("Error: " + err))
