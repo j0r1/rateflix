@@ -59,14 +59,24 @@ function serveFile(response, fileName)
             return;
         }
 
-        // TODO: set mimetype
         response.end(data);
     });
 }
 
 function handleMovieRequest(response, request)
 {
-    console.log(request);
+    let postParts = [ ];
+    request.on("data", (data) => { 
+        postParts.push(data);
+    });
+    request.on("end", () => {
+        let totalData = Buffer.concat(postParts);
+        let postData = totalData.toString();
+        console.log("Received:");
+        console.log(postData);
+
+        response.end('{ "imdb": 99, "rotten": 98 }');
+    });
 }
 
 function main()
