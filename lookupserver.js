@@ -203,14 +203,16 @@ function lookupRottenTomatoes(name)
                 let dom = new JSDOM(text);
                 let results = dom.window.document.querySelectorAll("search-page-media-row");
                 let url = null;
+                let count = 0;
                 for (let r of results)
                 {
                     let img = r.querySelector("img");
                     let txt = he.decode(img.getAttribute("alt"));
                     if (txt.toLowerCase() == name.toLowerCase()) // Use the first one with complete match
                     {
-                        url = img.parentNode.getAttribute("href");
-                        break;
+                        if (!url)
+                            url = img.parentNode.getAttribute("href");
+                        count++;
                     }
                 }
 
@@ -252,6 +254,8 @@ function lookupRottenTomatoes(name)
                             }
                         }
                         let result = "TM: " + tm + ", AUD: " + aud;
+                        if (count > 1)
+                            result += ` (${count} > 1!)`;
                         resolve(result);
                     }
                     catch(err)
