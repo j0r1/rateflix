@@ -3,6 +3,7 @@ const fs = require("fs");
 const fetch = require("node-fetch"); // npm install node-fetch@2.0
 const jsdom = require("jsdom"); // npm install jsdom
 const { JSDOM } = jsdom;
+const he = require("he"); // npm install he
 
 const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -93,7 +94,7 @@ function main()
     console.log("Server started");
 }
 
-server.listen(8000, main);
+//server.listen(8000, main);
 
 // From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
 function fixedEncodeURIComponent(str) {
@@ -166,6 +167,60 @@ function lookupIMDB(name)
     })
 }
 
-//lookupIMDB("Don't look up")
+function lookupRottenTomatoes(name)
+{
+    let url = "https://www.rottentomatoes.com/search?search=" + fixedEncodeURIComponent(name)
+    console.log(url);
+
+    fetch(url, {
+        headers: { 
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+        }
+    })
+    .then((response) => response.text())
+    .then((text) => {
+
+        let dom = new JSDOM(text);
+        let results = dom.window.document.querySelectorAll("search-page-media-row");
+        let url = null;
+        for (let r of results)
+        {
+            let img = r.querySelector("img");
+            let txt = he.decode(img.getAttribute("alt"));
+            if (txt.toLowerCase() == name.toLowerCase()) // Use the first one with complete match
+            {
+                url = img.parentNode.getAttribute("href");
+                break;
+            }
+        }
+
+        // TODO: Check if link found
+        console.log(url);
+
+        fetch(url, {
+            headers: { 
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+            }
+        })
+        .then((response) => response.text())
+        .then((text) => {
+            //console.log(text)
+
+            let dom = new JSDOM(text);
+            let scoreBoard = dom.window.document.querySelector("score-board");
+            let audience = scoreBoard.getAttribute("audiencescore");
+            let tomatometer = scoreBoard.getAttribute("tomatometerscore");
+
+            let result = {
+                "rotten_tomato": tomatometer,
+                "rotten_audience": audience
+            }
+            console.log(result);
+        })
+    });
+}
+
+lookupRottenTomatoes("Don't look up")
 //.then(score => console.log("Score: " + score))
 //.catch(err => console.log("Error: " + err))
+
