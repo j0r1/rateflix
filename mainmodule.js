@@ -7,7 +7,7 @@ class RatingInfo
     {
         this.name = name;
         this.anchor = anchor;
-        this.boxart = boxart;
+
 
         let ratingDiv = document.createElement("div");
         this.ratingDiv = ratingDiv;
@@ -17,9 +17,15 @@ class RatingInfo
         ratingDiv.style.top = "0px";
         ratingDiv.innerHTML = "Loading...";
 
-        boxart.appendChild(ratingDiv);
+        this.attachTo(boxart);
 
         this.startLookup();
+    }
+
+    attachTo(boxart)
+    {
+        this.boxart = boxart;
+        boxart.appendChild(this.ratingDiv);
     }
 
     startLookup()
@@ -48,7 +54,11 @@ class RatingInfo
 function startMovieLookup(name, anchor, boxart)
 {
     if (name in ratingInfo)
+    {
+        ratingInfo[name].attachTo(boxart); 
+        console.log("Re-attaching " + name);
         return;
+    }
 
     ratingInfo[name] = new RatingInfo(name, anchor, boxart);
 }
