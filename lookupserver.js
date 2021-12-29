@@ -85,6 +85,17 @@ function setupWorkers(N)
             d.response = null;
 
             response.end(msg);
+
+            // Check if there's a queued request
+
+            if (requestsToHandle.length > 0)
+            {
+                let r = requestsToHandle.shift();
+                d.busy = true;
+                d.response = r.response;
+                d.worker.postMessage(r.name);
+                console.log("Posting queued request: "  + r.name);
+            }
         });
 
         workers.push(d);
