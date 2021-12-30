@@ -24,6 +24,11 @@ class MovieRatings
         return this.ratingInfo;
     }
 
+    setRatingInfo(r)
+    {
+        this.ratingInfo = r;
+    }
+
     getRatingsRequested()
     {
         return this.ratingsRequested;
@@ -35,10 +40,25 @@ class MovieRatings
     }
 }
 
+let ws = null;
 let queuedCommands = [ ];
 
 function sendQueuedCommands()
 {
+    if (!ws)
+        return;
+
+    if (ws.readyState !== WebSocket.OPEN)
+        return;
+
+    for (let q of queuedCommands)
+    {
+        let s = JSON.stringify(q);
+        ws.send(s);
+        console.log("Sending queued " + s);
+    }
+
+    queuedCommands = [];
 }
 
 function sendCommand(cmd, name)
@@ -130,8 +150,25 @@ function showRatings(boxart, m)
     }
 }
 
+function processResult(msg)
+{
+    console.log("Got result");
+    let r = JSON.parse(msg);
+    console.log(r);
+    if (r.name in allMovies)
+        allMovies[r.name].setRatingInfo(r.results);
+}
+
 function visibleMoviesCheck()
 {
+    if (ws === null)
+    {
+        ws = new WebSocket("ws://localhost:8000");
+        ws.onmessage = (msg) => { processResult(msg.data); };
+        ws.onopen = sendQueuedCommands;
+        ws.onclose = () => { ws = null; }
+    }
+
     let noLongerVisible = new Map();
     // Clear list of visible movies
     for (let m of visibleMovies)

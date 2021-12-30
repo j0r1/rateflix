@@ -1,20 +1,71 @@
 const http = require("http");
 const fs = require("fs");
 const { Worker } = require('worker_threads');
+const websocket = require("websocket"); // npm install websocket
 
 const server = http.createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     if (req.method === "GET")
         serveFile(res, "." + req.url)
-    else if (req.method === "POST")
-        handleMovieRequest(res, req);
     else
     {
         res.statusCode = 505;
         res.end("Invalid method " + req.method);
     }
 });
+
+const wsServer = new websocket.server({
+    httpServer: server,
+    autoAcceptConnections: false
+});
+
+let connection = null;
+let queuedResults = [];
+
+wsServer.on("request", (request) => {
+    // TODO: check origin, reject request if needed
+
+    // 'null' means no specific subprotocol
+    let conn = request.accept(null, request.origin);
+    console.log("Connection from " + conn.remoteAddress);
+
+    if (connection)
+        connection.close();
+
+    connection = conn;
+
+    conn.on("message", (msg) => {
+        if (msg.type === 'binary')
+        {
+            console.log("Can't handle binary data, closing connection");
+            conn.close();
+        }
+        else
+        {
+            try
+            {
+                let cmdDict = JSON.parse(msg.utf8Data);
+                processCommand(cmdDict["command"], cmdDict["name"]);
+            }
+            catch(err)
+            {
+                console.log("Error processing message " + msg.utf8Data + ", closing connection");
+                conn.close();
+            }
+        }
+    });
+    conn.on("close", () => {
+        console.log("Disconnected " + conn.remoteAddress);
+        if (connection === conn)
+            connection = null;
+    });
+
+    // Send queued results
+    for (let r of queuedResults)
+        conn.send(r);
+    queuedResults = [];
+})
 
 function preprocessFileName(fileName)
 {
@@ -75,16 +126,13 @@ function setupWorkers(N)
         let d = {
             "worker": w, 
             "busy": false,
-            "response": null
         };
 
         w.on("message", (msg) => { 
             
-            let response = d.response;
             d.busy = false;
-            d.response = null;
 
-            response.end(msg);
+            sendResult(msg);
 
             // Check if there's a queued request
 
@@ -92,9 +140,8 @@ function setupWorkers(N)
             {
                 let r = requestsToHandle.shift();
                 d.busy = true;
-                d.response = r.response;
-                d.worker.postMessage(r.name);
-                console.log("Posting queued request: "  + r.name);
+                d.worker.postMessage(r);
+                console.log("Posting queued request: "  + r);
             }
         });
 
@@ -110,20 +157,20 @@ setupWorkers(8);
     console.log(busy);
 }, 2000);
 */
-function handleMovieRequest(response, request)
+
+setInterval(() => {
+    console.log("Requests to handle:");
+    console.log(requestsToHandle);
+    console.log("Queued results:");
+    console.log(queuedResults);
+},2000);
+
+function processCommand(command, movieName)
 {
-    let postParts = [ ];
-    request.on("data", (data) => { 
-        postParts.push(data);
-    });
-    request.on("end", () => {
-        let totalData = Buffer.concat(postParts);
-        let postData = totalData.toString();
+    console.log(`${command}: ${movieName}`);
 
-        console.log("Received:");
-        console.log(postData);
-
-        // Look for an available worker
+    if (command === "lookup")
+    {
         let found = false;
         for (let w of workers)
         {
@@ -131,15 +178,43 @@ function handleMovieRequest(response, request)
             {
                 found = true;
                 w.busy = true;
-                w.worker.postMessage(postData);
-                w.response = response;
+                w.worker.postMessage(movieName);
+                console.log("Started lookup for " + movieName);
                 break;
             }
         }
 
         if (!found) // add to queue
-            requestsToHandle.push({ "name": postData, "response": response })
-    });
+        {
+            if (!(movieName in requestsToHandle))
+                requestsToHandle.push(movieName);
+        }
+    }
+    else if (command === "cancel")
+    {
+        let count = 0;
+        for (let i = 0; i < requestsToHandle.length; i++)
+        { 
+            if (requestsToHandle[i] === movieName)
+            {
+                requestsToHandle.splice(i, 1); 
+                count++;
+            }
+        }
+        console.log(`Removed ${count} instances of '${movieName}' from requestsToHandle`);
+    }
+    else
+    {
+        console.log("Unknown command");
+    }
+}
+
+function sendResult(msg)
+{
+    if (connection)
+        connection.send(msg);
+    else
+        queuedResults.push(msg);
 }
 
 function main()

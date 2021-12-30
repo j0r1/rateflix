@@ -7,7 +7,8 @@ const he = require("he"); // npm install he
 parentPort.on("message", (name) => {
     console.log("Looking up: " + name);
 
-    let results = { };
+    let movieResults = { "name": name, "results": { } };
+    let results = movieResults.results;
 
     let imdbProm = lookupIMDB(name)
     .then((score) => {
@@ -26,9 +27,8 @@ parentPort.on("message", (name) => {
     })
     
     Promise.allSettled([imdbProm, rottenProm]).then(() => {
-        parentPort.postMessage(JSON.stringify(results));
-        console.log("Results for: " + name);
-        console.log(results);
+        parentPort.postMessage(JSON.stringify(movieResults));
+        console.log(movieResults);
     });
 })
 
