@@ -1,66 +1,98 @@
 
-let ratingInfo = { };
-
-class RatingInfo
+class MovieRatings
 {
-    constructor(name, anchor, boxart)
+    constructor(name)
     {
         this.name = name;
-        this.anchor = anchor;
-
-
-        let ratingDiv = document.createElement("div");
-        this.ratingDiv = ratingDiv;
-
-        ratingDiv.style.position = "relative";
-        ratingDiv.style.backgroundColor = "#000000a0";
-        ratingDiv.style.top = "0px";
-        ratingDiv.innerHTML = "Loading...";
-
-        this.attachTo(boxart);
-
-        this.startLookup();
+        this.visible = true;
+        this.ratingInfo = null;
+        this.ratingsRequested = false;
     }
 
-    attachTo(boxart)
+    getName()
     {
-        this.boxart = boxart;
-        boxart.appendChild(this.ratingDiv);
+        return this.name;
     }
 
-    startLookup()
+    setVisible(v)
     {
-        console.log("Starting lookup for: " + this.name);
-        fetch("http://localhost:8000", {
-            "method": "POST",
-            "cache": 'no-cache',
-            "headers": {
-                "Content-Type": "text/plain",
-            },
-            "body": this.name
-        })
-        .then(response => response.json())
-        .then((ratings) => {
-            console.log(ratings);
-
-            let html = "";
-            for (let rater in ratings)
-                html += rater + ": " + ratings[rater] + "<br>";
-            this.ratingDiv.innerHTML = html;
-        })
+        this.visible = v;
     }
-};
 
-function startMovieLookup(name, anchor, boxart)
+    getRatingInfo()
+    {
+        return this.ratingInfo;
+    }
+
+    getRatingsRequested()
+    {
+        return this.ratingsRequested;
+    }
+
+    setRatingsRequested(r)
+    {
+        this.ratingsRequested = r;
+    }
+}
+
+let queuedCommands = [ ];
+
+function sendQueuedCommands()
 {
-    if (name in ratingInfo)
-    {
-        ratingInfo[name].attachTo(boxart); 
-        console.log("Re-attaching " + name);
-        return;
-    }
+}
 
-    ratingInfo[name] = new RatingInfo(name, anchor, boxart);
+function sendCommand(cmd, name)
+{
+    // If it's a cancel, see if we can prevent it from even being sent out
+    if (cmd === "cancel")
+    {
+        let newQueuedCommands = [];
+        let found = false;
+        for (let i = 0 ; i < queuedCommands.length ; i++)
+        {
+            if (queuedCommands[i]["name"] !== name)
+                newQueuedCommands.push(queuedCommands[i]);
+            else
+                found = true;
+        }
+
+        queuedCommands = newQueuedCommands;
+
+        if (!found) // Didn't remove anything from the queue, add it
+            queuedCommands.push({"command": "cancel", "name": name});
+    }
+    else
+    {
+        queuedCommands.push({"command": cmd, "name": name});
+    }
+    console.log("Command list:");
+    console.log(queuedCommands);
+
+    sendQueuedCommands();
+}
+
+function cancelRatingRequests(movies)
+{
+    for (let m of movies)
+    {
+        sendCommand("cancel", m.getName());
+        m.setRatingsRequested(false);
+    }
+}
+
+function startRatingRequestIfNeeded(movies)
+{
+    for (let m of movies)
+    {
+        if (m.getRatingInfo() !== null) // Already have ratings
+            continue;
+
+        if (m.getRatingsRequested()) // Already signalled rating request
+            continue;
+
+        sendCommand("lookup", m.getName());
+        m.setRatingsRequested(true);
+    }
 }
 
 // https://stackoverflow.com/a/5354536/2828217
@@ -71,14 +103,48 @@ function checkVisible(elm)
     return !(rect.bottom < 0 || rect.top - viewHeight >= 0);
 }
 
-function periodicLookupCheck()
+let allMovies = { }
+let visibleMovies = []
+
+function showRatings(boxart, m)
 {
+    if (!boxart.ratingDiv)
+    {
+        let ratingDiv = document.createElement("div");
+        ratingDiv.style.position = "relative";
+        ratingDiv.style.backgroundColor = "#000000a0";
+        ratingDiv.style.top = "0px";
+        boxart.ratingDiv = ratingDiv;
+        boxart.appendChild(ratingDiv);
+    }
+    
+    let ratings = m.getRatingInfo();
+    if (!ratings)
+        boxart.ratingDiv.innerHTML = "Loading...";
+    else
+    {
+        let html = "";
+        for (let rater in ratings)
+            html += rater + ": " + ratings[rater] + "<br>";
+        boxart.ratingDiv.innerHTML = html;
+    }
+}
+
+function visibleMoviesCheck()
+{
+    let noLongerVisible = new Map();
+    // Clear list of visible movies
+    for (let m of visibleMovies)
+    {
+        m.setVisible(false);
+        noLongerVisible.set(m, true);
+    }
+    visibleMovies = []
+
+    // Build new list of visible movies
     let images = document.querySelectorAll("img.boxart-image");
     for (let i of images)
     {
-        if (i.lookupStarted)
-            continue;
-
         let boxart = i.parentElement;
         let anchor = boxart.parentElement;
         let name = anchor.getAttribute("aria-label");
@@ -87,11 +153,42 @@ function periodicLookupCheck()
         {
             if (checkVisible(i))
             {
-                i.lookupStarted = true;
-                startMovieLookup(name, anchor, boxart);
+                let m = null;
+                if (name in allMovies)
+                    m = allMovies[name];
+                else
+                {
+                    m = new MovieRatings(name);
+                    allMovies[name] = m;
+                }
+                m.setVisible(true);
+
+                visibleMovies.push(m);
+                if (noLongerVisible.has(m))
+                    noLongerVisible.delete(m);
+
+                showRatings(boxart, m);
             }
         }
     }
+
+    cancelRatingRequests(noLongerVisible.keys());
+    startRatingRequestIfNeeded(visibleMovies);
+
+    /*
+    // Debug: list visible movies
+    let s = "";
+    for (let m of visibleMovies)
+        s += m.getName() + ":";
+    console.log("Visible:" + s);
+
+    // List no longer visible:
+    s = "";
+    for (let m of noLongerVisible.keys())
+        s += m.getName() + ":";
+    if (s.length > 0)
+        console.log("No longer visible:" + s);
+    */
 }
 
 function main()
@@ -103,7 +200,7 @@ function main()
         console.log("Cleared old timer");
     }
 
-    window.rateFlixTimer = setInterval(periodicLookupCheck, 1000);
+    window.rateFlixTimer = setInterval(visibleMoviesCheck, 1000);
 }
 
 console.log("Main module");

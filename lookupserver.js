@@ -103,13 +103,13 @@ function setupWorkers(N)
 }
 
 setupWorkers(8);
-setInterval(() => {
+/*setInterval(() => {
     let busy = [];
     for (let w of workers)
         busy.push(w.busy);
     console.log(busy);
 }, 2000);
-
+*/
 function handleMovieRequest(response, request)
 {
     let postParts = [ ];
