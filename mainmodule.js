@@ -38,64 +38,133 @@ class MovieRatings
     {
         this.ratingsRequested = r;
     }
+
+    showRatings(boxart)
+    {
+        if (!boxart.ratingDiv)
+        {
+            let ratingDiv = document.createElement("div");
+            ratingDiv.style.position = "relative";
+            ratingDiv.style.backgroundColor = "#000000a0";
+            ratingDiv.style.top = "0px";
+            boxart.ratingDiv = ratingDiv;
+            boxart.appendChild(ratingDiv);
+        }
+        
+        if (!this.ratingInfo)
+            boxart.ratingDiv.innerHTML = "Loading...";
+        else
+        {
+            let html = "";
+            for (let rater in this.ratingInfo)
+                html += rater + ": " + this.ratingInfo[rater] + "<br>";
+            boxart.ratingDiv.innerHTML = html;
+        }
+    }
 }
 
-let ws = null;
-let queuedCommands = [ ];
+let commandConn = null;
 
-function sendQueuedCommands()
+class CommandConnection
 {
-    if (!ws)
-        return;
-
-    if (ws.readyState !== WebSocket.OPEN)
-        return;
-
-    for (let q of queuedCommands)
+    constructor(url)
     {
-        let s = JSON.stringify(q);
-        ws.send(s);
-        console.log("Sending queued " + s);
+        this.url = url;
+        this._openWS();
+        this.queuedCommands = [];
     }
 
-    queuedCommands = [];
-}
-
-function sendCommand(cmd, name)
-{
-    // If it's a cancel, see if we can prevent it from even being sent out
-    if (cmd === "cancel")
+    destroy()
     {
-        let newQueuedCommands = [];
-        let found = false;
-        for (let i = 0 ; i < queuedCommands.length ; i++)
+        if (!this.ws)
+            return;
+
+        this.ws.onclose = null;
+        this.ws.onmessage = null;
+        this.ws.onopen = null;
+        this.ws.close();
+        this.ws = null;
+        console.log("Websocket command connection destroyed");
+    }
+
+    _openWS()
+    {
+        this.ws = new WebSocket(this.url);
+        this.ws.onclose = () => { this._onWSClose(); }
+        this.ws.onopen = () => { this._sendQueuedCommands(); }
+        this.ws.onmessage = (msg) => { this._onMessage(msg); }
+    }
+
+    _onWSClose()
+    {
+        this.ws.onclose = null;
+        this.ws.onmessage = null;
+        this.ws.onopen = null;
+        this.ws = null;
+        setTimeout(() => { 
+            console.log("Trying to re-open websocket");
+            this._openWS()
+        }, 1000); // Wait a bit and try again
+    }
+
+    _onMessage(msg)
+    {
+        this.onRatingResult(JSON.parse(msg.data));
+    }
+
+    onRatingResult(data) { } // override this!
+
+    _sendQueuedCommands()
+    {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN)
+            return;
+
+        for (let q of this.queuedCommands)
         {
-            if (queuedCommands[i]["name"] !== name)
-                newQueuedCommands.push(queuedCommands[i]);
-            else
-                found = true;
+            let s = JSON.stringify(q);
+            this.ws.send(s);
+            console.log("Sending queued " + s);
         }
 
-        queuedCommands = newQueuedCommands;
-
-        if (!found) // Didn't remove anything from the queue, add it
-            queuedCommands.push({"command": "cancel", "name": name});
+        this.queuedCommands = [];
     }
-    else
+
+    sendCommand(cmd, name)
     {
-        queuedCommands.push({"command": cmd, "name": name});
-    }
-    console.log("Command list:");
-    console.log(queuedCommands);
+        // If it's a cancel, see if we can prevent it from even being sent out
+        if (cmd === "cancel")
+        {
+            let newQueuedCommands = [];
+            let found = false;
+            for (let i = 0 ; i < this.queuedCommands.length ; i++)
+            {
+                if (this.queuedCommands[i]["name"] !== name)
+                    newQueuedCommands.push(this.queuedCommands[i]);
+                else
+                    found = true;
+            }
 
-    sendQueuedCommands();
+            this.queuedCommands = newQueuedCommands;
+
+            if (!found) // Didn't remove anything from the queue, add it
+                this.queuedCommands.push({"command": "cancel", "name": name});
+        }
+        else
+        {
+            this.queuedCommands.push({"command": cmd, "name": name});
+        }
+        console.log("Command list:");
+        console.log(this.queuedCommands);
+
+        this._sendQueuedCommands();
+    }
 }
 
 function cancelRatingRequests(movies)
 {
     for (let m of movies)
     {
-        sendCommand("cancel", m.getName());
+        commandConn.sendCommand("cancel", m.getName());
         m.setRatingsRequested(false);
     }
 }
@@ -110,7 +179,7 @@ function startRatingRequestIfNeeded(movies)
         if (m.getRatingsRequested()) // Already signalled rating request
             continue;
 
-        sendCommand("lookup", m.getName());
+        commandConn.sendCommand("lookup", m.getName());
         m.setRatingsRequested(true);
     }
 }
@@ -126,34 +195,9 @@ function checkVisible(elm)
 let allMovies = { }
 let visibleMovies = []
 
-function showRatings(boxart, m)
-{
-    if (!boxart.ratingDiv)
-    {
-        let ratingDiv = document.createElement("div");
-        ratingDiv.style.position = "relative";
-        ratingDiv.style.backgroundColor = "#000000a0";
-        ratingDiv.style.top = "0px";
-        boxart.ratingDiv = ratingDiv;
-        boxart.appendChild(ratingDiv);
-    }
-    
-    let ratings = m.getRatingInfo();
-    if (!ratings)
-        boxart.ratingDiv.innerHTML = "Loading...";
-    else
-    {
-        let html = "";
-        for (let rater in ratings)
-            html += rater + ": " + ratings[rater] + "<br>";
-        boxart.ratingDiv.innerHTML = html;
-    }
-}
-
-function processResult(msg)
+function processResult(r)
 {
     console.log("Got result");
-    let r = JSON.parse(msg);
     console.log(r);
     if (r.name in allMovies)
         allMovies[r.name].setRatingInfo(r.results);
@@ -161,14 +205,6 @@ function processResult(msg)
 
 function visibleMoviesCheck()
 {
-    if (ws === null)
-    {
-        ws = new WebSocket("ws://localhost:8000");
-        ws.onmessage = (msg) => { processResult(msg.data); };
-        ws.onopen = sendQueuedCommands;
-        ws.onclose = () => { ws = null; }
-    }
-
     let noLongerVisible = new Map();
     // Clear list of visible movies
     for (let m of visibleMovies)
@@ -204,7 +240,7 @@ function visibleMoviesCheck()
                 if (noLongerVisible.has(m))
                     noLongerVisible.delete(m);
 
-                showRatings(boxart, m);
+                m.showRatings(boxart);
             }
         }
     }
@@ -237,7 +273,17 @@ function main()
         console.log("Cleared old timer");
     }
 
+    if (window.rateFlixConn !== undefined)
+    {
+        window.rateFlixConn.destroy();
+        console.log("Cleared old connection");
+    }
+
     window.rateFlixTimer = setInterval(visibleMoviesCheck, 1000);
+
+    commandConn = new CommandConnection("ws://localhost:8000");
+    commandConn.onRatingResult = processResult;
+    window.rateFlixConn = commandConn;
 }
 
 console.log("Main module");
