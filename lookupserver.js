@@ -149,7 +149,12 @@ function setupWorkers(N)
     }
 }
 
-setupWorkers(8);
+let numWorkers = parseInt(process.argv[3]);
+if (numWorkers < 1 || numWorkers > 32 || isNaN(numWorkers))
+    throw "Invalid number of workers";
+console.log(`Using ${numWorkers} workers`);
+
+setupWorkers(numWorkers);
 /*setInterval(() => {
     let busy = [];
     for (let w of workers)
