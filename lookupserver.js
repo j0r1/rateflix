@@ -219,10 +219,11 @@ function sendResult(msg)
 
 function main()
 {
-    console.log("Server started");
+    console.log("Server started on port " + serverPort);
 }
 
-server.listen(8000, main);
+let serverPort = parseInt(process.argv[2]);
+server.listen(serverPort, main);
 
 
 

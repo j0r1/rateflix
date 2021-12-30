@@ -281,9 +281,11 @@ function main()
 
     window.rateFlixTimer = setInterval(visibleMoviesCheck, 1000);
 
-    commandConn = new CommandConnection("ws://localhost:8000");
+    commandConn = new CommandConnection("ws://localhost:" + window.rateFlixPort);
     commandConn.onRatingResult = processResult;
     window.rateFlixConn = commandConn;
+
+    
 }
 
 console.log("Main module");

@@ -8,6 +8,7 @@
     
         function initBookmarklet()
         {
+            window.rateFlixPort = RATEFLIXPORT;
             if (window.getRateFlixMain)
             {
                 window.getRateFlixMain();
@@ -17,7 +18,7 @@
             console.log("Initbookmarklet");
             var s = document.createElement("script");
             s.type = "module";
-            s.src = "http://localhost:8000/maincode.js";
+            s.src = "http://localhost:RATEFLIXPORT/maincode.js";
 
             document.body.appendChild(s);
         }
@@ -30,7 +31,9 @@
             var elem = document.getElementById("bookmarkletscript");
             var data = elem.innerHTML;
 
+            data = data.replaceAll("RATEFLIXPORT", "" + document.location.port);
             data = "void((function() { " + data + "\ninitBookmarklet(); })())";
+            console.log(data);
 
             elem = document.getElementById("bookmarkletlink");
             elem.setAttribute("href", "javascript:" + encodeURIComponent(data));
