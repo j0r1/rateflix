@@ -39,12 +39,12 @@ class MovieRatings
         this.ratingsRequested = r;
     }
 
-    showRatings(boxart)
+    showRatings(boxart, fixed)
     {
         if (!boxart.ratingDiv)
         {
             let ratingDiv = document.createElement("div");
-            ratingDiv.style.position = "relative";
+            ratingDiv.style.position = (fixed)?"fixed":"relative";
             ratingDiv.style.backgroundColor = "#000000a0";
             ratingDiv.style.top = "0px";
             boxart.ratingDiv = ratingDiv;
@@ -57,7 +57,7 @@ class MovieRatings
         {
             let html = "";
             for (let rater in this.ratingInfo)
-                html += rater + ": " + this.ratingInfo[rater] + "<br>";
+                html += `${rater}: ${this.ratingInfo[rater]}<br>`;
             boxart.ratingDiv.innerHTML = html;
         }
     }
@@ -215,14 +215,20 @@ function visibleMoviesCheck()
     visibleMovies = []
 
     // Build new list of visible movies
-    let images = document.querySelectorAll("img.boxart-image");
+    let images = document.querySelectorAll("img.previewModal--boxart, img.boxart-image");
     for (let i of images)
     {
         let boxart = i.parentElement;
         let anchor = boxart.parentElement;
-        let name = anchor.getAttribute("aria-label");
+        let name = null;
         let hidden = anchor.getAttribute("aria-hidden");
-        if (hidden === "false")
+
+        if (i.className == "previewModal--boxart")
+            name = i.getAttribute("alt");
+        else
+            name = anchor.getAttribute("aria-label");
+            
+        if (i.className == "previewModal--boxart" || hidden === "false")
         {
             if (checkVisible(i))
             {
@@ -240,7 +246,7 @@ function visibleMoviesCheck()
                 if (noLongerVisible.has(m))
                     noLongerVisible.delete(m);
 
-                m.showRatings(boxart);
+                m.showRatings(boxart, i.className === "previewModal--boxart");
             }
         }
     }
