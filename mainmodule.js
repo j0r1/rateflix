@@ -39,16 +39,35 @@ class MovieRatings
         this.ratingsRequested = r;
     }
 
-    showRatings(boxart, fixed)
+    showRatings(boxart, isPopup, img)
     {
         if (!boxart.ratingDiv)
         {
+            let ratingDiv0 = document.createElement("div");
             let ratingDiv = document.createElement("div");
-            ratingDiv.style.position = (fixed)?"fixed":"relative";
+            ratingDiv0.appendChild(ratingDiv);
+
+            ratingDiv0.style.position = "relative";
+            if (isPopup)
+            {
+                let r = img.getBoundingClientRect();
+                ratingDiv0.style.top = "-" + Math.round(r.height/2) + "px";
+                ratingDiv0.style.height = "0px";
+            }
+            else
+                ratingDiv0.style.top = "0px";
+
             ratingDiv.style.backgroundColor = "#000000a0";
-            ratingDiv.style.top = "0px";
+
             boxart.ratingDiv = ratingDiv;
-            boxart.appendChild(ratingDiv);
+            boxart.appendChild(ratingDiv0);
+        }
+
+        boxart.ratingDiv.onclick = (evt) => { 
+            evt.preventDefault();
+            evt.stopImmediatePropagation();
+            this.openRatingUrls(); 
+            return false;
         }
         
         if (!this.ratingInfo)
@@ -60,6 +79,11 @@ class MovieRatings
                 html += `${rater}: ${this.ratingInfo[rater]}<br>`;
             boxart.ratingDiv.innerHTML = html;
         }
+    }
+
+    openRatingUrls()
+    {
+        console.log("TODO: open rating urls for " + this.name);
     }
 }
 
@@ -218,17 +242,26 @@ function visibleMoviesCheck()
     let images = document.querySelectorAll("img.previewModal--boxart, img.boxart-image");
     for (let i of images)
     {
-        let boxart = i.parentElement;
-        let anchor = boxart.parentElement;
+        let par = i.parentElement;
+        let divToAddTo = null;
         let name = null;
-        let hidden = anchor.getAttribute("aria-hidden");
+        let hidden = true;
 
         if (i.className == "previewModal--boxart")
+        {
             name = i.getAttribute("alt");
+            divToAddTo = par.nextElementSibling;
+        }
         else
+        {
+            divToAddTo = par;
+
+            let anchor = par.parentElement;
+            hidden = anchor.getAttribute("aria-hidden");
             name = anchor.getAttribute("aria-label");
+        }
             
-        if (i.className == "previewModal--boxart" || hidden === "false")
+        if (i.className === "previewModal--boxart" || hidden === "false")
         {
             if (checkVisible(i))
             {
@@ -246,7 +279,7 @@ function visibleMoviesCheck()
                 if (noLongerVisible.has(m))
                     noLongerVisible.delete(m);
 
-                m.showRatings(boxart, i.className === "previewModal--boxart");
+                m.showRatings(divToAddTo, i.className === "previewModal--boxart", i);
             }
         }
     }
