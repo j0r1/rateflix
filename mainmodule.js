@@ -308,6 +308,8 @@ function visibleMoviesCheck()
     cancelRatingRequests(noLongerVisible.keys());
     startRatingRequestIfNeeded(visibleMovies);
 
+    saveToLocalStorage();
+
     /*
     // Debug: list visible movies
     let s = "";
@@ -322,6 +324,43 @@ function visibleMoviesCheck()
     if (s.length > 0)
         console.log("No longer visible:" + s);
     */
+}
+
+function saveToLocalStorage()
+{
+    let cache = { };
+    for (let name in allMovies)
+    {
+        let r = allMovies[name].getRatingInfo();
+        if (!r)
+            continue;
+
+        cache[name] = r;
+    }
+
+    localStorage["rateFlixCache"] = JSON.stringify(cache);
+}
+
+function loadLocalStorage()
+{
+    let cachedMoviesRatings = localStorage["rateFlixCache"];
+    if (!cachedMoviesRatings)
+        return;
+    cachedMoviesRatings = JSON.parse(cachedMoviesRatings);
+
+    allMovies = { }
+    for (let name in cachedMoviesRatings)
+    {
+        let ratingInfo = cachedMoviesRatings[name];
+        if (!ratingInfo)
+            continue;
+
+        let m = new MovieRatings(name);
+        m.setRatingInfo(ratingInfo);
+        m.setVisible(false);
+
+        allMovies[name] = m;
+    }
 }
 
 function main()
@@ -345,7 +384,7 @@ function main()
     commandConn.onRatingResult = processResult;
     window.rateFlixConn = commandConn;
 
-    
+   loadLocalStorage(); 
 }
 
 console.log("Main module");
