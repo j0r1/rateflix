@@ -76,15 +76,36 @@ class MovieRatings
         {
             let html = "";
             for (let rater in this.ratingInfo)
-                html += `${rater}: ${this.ratingInfo[rater]}<br>`;
+                html += `${rater}: ${this.ratingInfo[rater]["score"]}<br>`;
             boxart.ratingDiv.innerHTML = html;
         }
     }
 
     openRatingUrls()
     {
-        console.log("TODO: open rating urls for " + this.name);
+        if (!this.ratingInfo)
+        {
+            console.log("No rating urls to open yet");
+            return;
+        }
+
+        let urls = [ ];
+
+        for (let rater in this.ratingInfo)
+            if (this.ratingInfo[rater]["url"])
+                urls.push(this.ratingInfo[rater]["url"]);
+
+        for (let u of urls)
+            openInNewTab(u);
     }
+}
+
+// https://stackoverflow.com/a/28374344/2828217
+function openInNewTab(href) {
+    Object.assign(document.createElement('a'), {
+        target: '_blank',
+        href: href,
+    }).click();
 }
 
 let commandConn = null;

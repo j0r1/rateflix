@@ -11,19 +11,19 @@ parentPort.on("message", (name) => {
     let results = movieResults.results;
 
     let imdbProm = lookupIMDB(name)
-    .then((score) => {
-        results["imdb"] = score;
+    .then(([score, url]) => {
+        results["imdb"] = { "score": score, "url": url };
     })
-    .catch((err) => {
-        results["imdb"] = err;
+    .catch(([err, url]) => {
+        results["imdb"] = { "score": err, "url": url };
     })
 
     let rottenProm = lookupRottenTomatoes(name)
-    .then((score) => {
-        results["rotten"] = score;
+    .then(([score, url]) => {
+        results["rotten"] = { "score": score, "url": url };
     })
-    .catch((err) => {
-        results["rotten"] = err;
+    .catch(([err, url]) => {
+        results["rotten"] = { "score": err, "url": url };
     })
     
     Promise.allSettled([imdbProm, rottenProm]).then(() => {
@@ -77,27 +77,27 @@ function lookupIMDB(name)
                         }
 
                         let span = div.querySelector("span");
-                        resolve(span.textContent);
+                        resolve([span.textContent, url]);
                     }
                     catch(err)
                     {
-                        reject("Error getting imdb score from page " + url);
+                        reject(["Error getting imdb score from page", url]);
                         console.log(err);
                     }
                 })
                 .catch((err) => {
-                    reject("Error fetching imdb title url " + url);
+                    reject(["Error fetching imdb title url", url]);
                     console.log(err);
                 })
             }
             catch(err)
             {
-                reject("Error getting imdb title url from " + url);
+                reject(["Error getting imdb title url", url]);
                 console.log(err);
             }
         })
         .catch((err) => {
-            reject("Error fetching imdb page " + url);
+            reject(["Error fetching imdb page", url]);
             console.log(err);
         })
     })
@@ -176,27 +176,27 @@ function lookupRottenTomatoes(name)
                         let result = "TM: " + tm + ", AUD: " + aud;
                         if (count > 1)
                             result += ` (${count} > 1!)`;
-                        resolve(result);
+                        resolve([result, url]);
                     }
                     catch(err)
                     {
-                        reject("Error getting rotten tomatoes scores from page " + url);
+                        reject(["Error getting rotten tomatoes scores from page", url]);
                         console.log(err);
                     }
                 })
                 .catch((err) => {
-                    reject("Error rotten tomatoes title url " + url);
+                    reject(["Error rotten tomatoes title url", url]);
                     console.log(err);
                 })
             }
             catch(err)
             {
-                reject("Error rotten tomatoes title url from " + url);
+                reject(["Error rotten tomatoes title url from", url]);
                 console.log(err);
             }
         })
         .catch((err) => {
-            reject("Error fetching rotten tomatoes page " + url);
+            reject(["Error fetching rotten tomatoes page", url]);
             console.log(err);
         })
     });
