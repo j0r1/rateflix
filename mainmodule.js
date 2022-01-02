@@ -39,29 +39,29 @@ class MovieRatings
         this.ratingsRequested = r;
     }
 
-    showRatings(boxart, isPopup, img)
+    showRatings(boxart, isPopup, elem)
     {
         if (!boxart.ratingDiv)
         {
             let ratingDiv0 = document.createElement("div");
             let ratingDiv = document.createElement("div");
             ratingDiv0.appendChild(ratingDiv);
-
-            ratingDiv0.style.position = "relative";
-            if (isPopup)
-            {
-                let r = img.getBoundingClientRect();
-                ratingDiv0.style.top = "-" + Math.round(r.height/2) + "px";
-                ratingDiv0.style.height = "0px";
-            }
-            else
-                ratingDiv0.style.top = "0px";
-
             ratingDiv.style.backgroundColor = "#000000a0";
-
             boxart.ratingDiv = ratingDiv;
             boxart.appendChild(ratingDiv0);
         }
+
+        let ratingDiv = boxart.ratingDiv;
+        let ratingDiv0 = ratingDiv.parentElement;
+        let r = elem.getBoundingClientRect();
+        ratingDiv0.style.position = "relative";
+        if (isPopup)
+        {
+            ratingDiv0.style.height = "0px";
+            ratingDiv0.style.top = "-" + Math.round(r.height) + "px";
+        }
+        else
+            ratingDiv0.style.top = "-" + Math.round(r.height/2) + "px";
 
         boxart.ratingDiv.onclick = (evt) => { 
             evt.preventDefault();
@@ -267,11 +267,14 @@ function visibleMoviesCheck()
         let divToAddTo = null;
         let name = null;
         let hidden = true;
+        let heightElem = null;
 
         if (i.className == "previewModal--boxart")
         {
             name = i.getAttribute("alt");
-            divToAddTo = par.nextElementSibling;
+            //divToAddTo = par.nextElementSibling;
+            divToAddTo = par.parentElement.parentElement;
+            heightElem = divToAddTo;
         }
         else
         {
@@ -280,6 +283,7 @@ function visibleMoviesCheck()
             let anchor = par.parentElement;
             hidden = anchor.getAttribute("aria-hidden");
             name = anchor.getAttribute("aria-label");
+            heightElem = i;
         }
             
         if (i.className === "previewModal--boxart" || hidden === "false")
@@ -300,7 +304,7 @@ function visibleMoviesCheck()
                 if (noLongerVisible.has(m))
                     noLongerVisible.delete(m);
 
-                m.showRatings(divToAddTo, i.className === "previewModal--boxart", i);
+                m.showRatings(divToAddTo, i.className === "previewModal--boxart", heightElem);
             }
         }
     }
