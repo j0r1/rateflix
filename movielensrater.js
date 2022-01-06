@@ -148,6 +148,7 @@ class MovieLensRater extends rater.Rater
                 }
                 catch(err)
                 {
+                    console.log(data);
                     console.log(err);
                     reject(["Unable to find movie on search page", url]);
                 }
@@ -156,13 +157,12 @@ class MovieLensRater extends rater.Rater
     }
 }
 
-/*
 async function main()
 {
     let rater = new MovieLensRater();
     await rater.init();
 
-    let [ rating, url ] = await rater.lookup("The matrix reloaded");
+    let [ rating, url ] = await rater.lookup("The prestige");
     console.log("Rating: " + rating);
     console.log("Url: " + url);
 }
@@ -170,4 +170,5 @@ async function main()
 main()
 .then(() => console.log("Finished"))
 .catch((e) => { console.log("Error in main:"); console.log(e); })
-*/
+
+exports.MovieLensRater = MovieLensRater;

@@ -1,204 +1,57 @@
 const { WorkerData, parentPort } = require('worker_threads')
-const fetch = require("node-fetch"); // npm install node-fetch@2.0
-const jsdom = require("jsdom"); // npm install jsdom
-const { JSDOM } = jsdom;
-const he = require("he"); // npm install he
 
-parentPort.on("message", (name) => {
+const imdb = require("./imdbrater.js");
+const rotten = require("./rottentomatoesrater.js");
+const movielens = require("./movielensrater.js");
+
+const raterList = [
+    new imdb.IMDBRater(),
+    new rotten.RottenTomatoesRater(),
+    new movielens.MovieLensRater(),
+];
+
+const raters = {};
+for (let r of raterList)
+    raters[r.getName()] = r;
+
+function initializeRaters()
+{
+    let promises = [];
+    for (let r in raters)
+        promises.push(raters[r].init());
+
+    return Promise.all(promises);
+}
+
+function incomingMessage(msg)
+{
+    let name = msg;
     console.log("Looking up: " + name);
 
     let movieResults = { "name": name, "results": { } };
     let results = movieResults.results;
 
-    let imdbProm = lookupIMDB(name)
-    .then(([score, url]) => {
-        results["imdb"] = { "score": score, "url": url };
-    })
-    .catch(([err, url]) => {
-        results["imdb"] = { "score": err, "url": url };
-    })
+    let promises = [];
+    for (let r in raters)
+    {
+        let p = raters[r].lookup(name)
+        .then(([score, url]) => { results[r] = { "score": score, "url": url } })
+        .catch(([err, url]) => { results[r] = { "score": err, "url": url } });
 
-    let rottenProm = lookupRottenTomatoes(name)
-    .then(([score, url]) => {
-        results["rotten"] = { "score": score, "url": url };
-    })
-    .catch(([err, url]) => {
-        results["rotten"] = { "score": err, "url": url };
-    })
-    
-    Promise.allSettled([imdbProm, rottenProm]).then(() => {
+        promises.push(p);
+    }
+
+    Promise.allSettled(promises).then(() => {
         parentPort.postMessage(JSON.stringify(movieResults));
         console.log(movieResults);
     });
-})
-
-// From https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
-function fixedEncodeURIComponent(str) {
-    return encodeURIComponent(str).replace(/[!'()*]/g, function(c) {
-        return '%' + c.charCodeAt(0).toString(16);
-    });
 }
 
-function lookupIMDB(name)
+async function main()
 {
-    return new Promise((resolve, reject) => {
-        let url = "https://www.imdb.com/find?q=" + fixedEncodeURIComponent(name) + "&s=tt&exact=true";
-        console.log(url);
-        
-        fetch(url)
-        .then((response) => response.text())
-        .then((text) => {
-            try
-            {
-                let dom = new JSDOM(text);
-                let td = dom.window.document.querySelector("td.result_text");
-                let a = td.querySelector("a");
-                let titleHref = a.getAttribute("href");
-
-                let url = "https://www.imdb.com/" + titleHref ;
-                console.log(url);
-
-                fetch(url)
-                .then((response) => response.text())
-                .then((text) => {
-                    try
-                    {
-                        let dom = new JSDOM(text);
-                        let divs = dom.window.document.querySelectorAll("div");
-                        let div = null;
-
-                        for (let d of divs)
-                        {
-                            if (d.getAttribute("data-testid") === "hero-rating-bar__aggregate-rating__score")
-                            {
-                                div = d;
-                                break;
-                            }
-                        }
-
-                        let span = div.querySelector("span");
-                        resolve([span.textContent, url]);
-                    }
-                    catch(err)
-                    {
-                        reject(["Error getting imdb score from page", url]);
-                        console.log(err);
-                    }
-                })
-                .catch((err) => {
-                    reject(["Error fetching imdb title url", url]);
-                    console.log(err);
-                })
-            }
-            catch(err)
-            {
-                reject(["Error getting imdb title url", url]);
-                console.log(err);
-            }
-        })
-        .catch((err) => {
-            reject(["Error fetching imdb page", url]);
-            console.log(err);
-        })
-    })
+    await initializeRaters();
+    console.log("Raters initialized");
+    parentPort.on("message", incomingMessage);
 }
 
-function lookupRottenTomatoes(name)
-{
-    return new Promise((resolve, reject) => {
-
-        let url = "https://www.rottentomatoes.com/search?search=" + fixedEncodeURIComponent(name)
-        console.log(url);
-
-        fetch(url, {
-            headers: { 
-                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-            }
-        })
-        .then((response) => response.text())
-        .then((text) => {
-
-            try
-            {
-                let dom = new JSDOM(text);
-                let results = dom.window.document.querySelectorAll("search-page-media-row");
-                let url = null;
-                let count = 0;
-                for (let r of results)
-                {
-                    let img = r.querySelector("img");
-                    let txt = he.decode(img.getAttribute("alt"));
-                    if (txt.toLowerCase() == name.toLowerCase()) // Use the first one with complete match
-                    {
-                        if (!url)
-                            url = img.parentNode.getAttribute("href");
-                        count++;
-                    }
-                }
-
-                // TODO: Check if link found
-                console.log(url);
-
-                fetch(url, {
-                    headers: { 
-                        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-                    }
-                })
-                .then((response) => response.text())
-                .then((text) => {
-
-                    //console.log(text);
-
-                    try
-                    {
-                        let dom = new JSDOM(text);
-                        let scoreBoard = dom.window.document.querySelector("score-board");
-                        let tm = "";
-                        let aud = "";
-                        if (scoreBoard)
-                        {
-                            aud = scoreBoard.getAttribute("audiencescore");
-                            tm = scoreBoard.getAttribute("tomatometerscore");
-                        }
-                        else
-                        {
-                            let spans = dom.window.document.querySelectorAll("span");
-
-                            for (let s of spans)
-                            {
-                                let dataqa = s.getAttribute("data-qa");
-                                if (dataqa === "tomatometer")
-                                    tm = s.textContent.trim();
-                                else if (dataqa === "audience-score")
-                                    aud = s.textContent.trim();
-                            }
-                        }
-                        let result = "TM: " + tm + ", AUD: " + aud;
-                        if (count > 1)
-                            result += ` (${count} > 1!)`;
-                        resolve([result, url]);
-                    }
-                    catch(err)
-                    {
-                        reject(["Error getting rotten tomatoes scores from page", url]);
-                        console.log(err);
-                    }
-                })
-                .catch((err) => {
-                    reject(["Error rotten tomatoes title url", url]);
-                    console.log(err);
-                })
-            }
-            catch(err)
-            {
-                reject(["Error rotten tomatoes title url from", url]);
-                console.log(err);
-            }
-        })
-        .catch((err) => {
-            reject(["Error fetching rotten tomatoes page", url]);
-            console.log(err);
-        })
-    });
-}
-
+main();

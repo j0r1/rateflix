@@ -102,3 +102,5 @@ main()
 .then(() => console.log("Finished"))
 .catch((e) => { console.log("Error in main:"); console.log(e); })
 */
+
+exports.IMDBRater = IMDBRater;
