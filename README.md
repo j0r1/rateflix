@@ -1,10 +1,15 @@
-Some tools to add IMDB/Rotten Tomatoes ratings to movies/series on Netflix
+Some tools to add IMDB/Rotten Tomatoes/TMDB/Movielens ratings to movies/series on Netflix
 
 First step is to start the helper program:
 
  - install dependencies with 
 
        npm install 
+
+ - to enable the [movielens](https://movielens.org/) info, you need to create
+   a file called ``movielensaccount.json``, with contents
+
+       {"userName": "your.login@someaddress.com", "password": "yourmovielenspassword"}
 
  - start server on a certain port, with a number of worker threads, e.g.
 
