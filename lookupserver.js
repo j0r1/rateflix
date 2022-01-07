@@ -163,12 +163,14 @@ setupWorkers(numWorkers);
 }, 2000);
 */
 
+/*
 setInterval(() => {
     console.log("Requests to handle:");
     console.log(requestsToHandle);
     console.log("Queued results:");
     console.log(queuedResults);
 },2000);
+*/
 
 function processCommand(command, movieName)
 {
