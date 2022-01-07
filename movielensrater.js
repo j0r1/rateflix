@@ -84,6 +84,10 @@ class MovieLensRater extends rater.Rater
                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
                 },
             }, (err, response, data) => {
+                
+                // Change url so the non-json version can be shown in browser
+                let url = "https://movielens.org/movies/explore?q=" + util.fixedEncodeURIComponent(name);
+                
                 if (err)
                 {
                     reject(["Error loading search page", url]);
@@ -119,6 +123,9 @@ class MovieLensRater extends rater.Rater
                         },
                     }, (err, response, data) => {
                 
+                        // Change url so the non-json version can be shown in browser
+                        let url = "https://movielens.org/movies/" + movieId;
+
                         if (err)
                         {
                             console.log(err);
@@ -148,6 +155,7 @@ class MovieLensRater extends rater.Rater
                 }
                 catch(err)
                 {
+                    console.log("Error looking up " + name);
                     console.log(data);
                     console.log(err);
                     reject(["Unable to find movie on search page", url]);
@@ -157,6 +165,7 @@ class MovieLensRater extends rater.Rater
     }
 }
 
+/*
 async function main()
 {
     let rater = new MovieLensRater();
@@ -170,5 +179,6 @@ async function main()
 main()
 .then(() => console.log("Finished"))
 .catch((e) => { console.log("Error in main:"); console.log(e); })
+*/
 
 exports.MovieLensRater = MovieLensRater;
