@@ -77,7 +77,7 @@ class IMDBRater extends rater.Rater
             }
 
             let span = div.querySelector("span");
-            return [span.textContent, url];
+            return [span.textContent, movieUrl];
         }
         catch(err)
         {
