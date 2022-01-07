@@ -1,3 +1,66 @@
+import { iconImdb, iconRottenTomato, iconRottenAudience, iconTmdb, iconMovieLens } from "./icons.js";
+
+function formatGeneric(ratingInfo, icon, modifier = (m) => m)
+{
+    let s = `<img src='${icon}' style='height:1em'> `;
+    if ("error" in ratingInfo)
+        s += "E";
+    else
+    {
+        let scoreFrac = ratingInfo["score"]/ratingInfo["max"];
+        s += modifier((scoreFrac*10).toFixed(1));
+        s += " ";
+    }
+    return s;
+}
+
+function formatImdb(ratingInfo)
+{
+    return formatGeneric(ratingInfo, iconImdb);
+}
+
+function formatRotten(ratingInfo)
+{
+    let st = `<img src='${iconRottenTomato}' style='height:1em'> `;
+    let sa = `<img src='${iconRottenAudience}' style='height:1em'> `;
+    if ("error" in ratingInfo)
+        return st + "E";
+
+    let s = "";
+
+    for (let [img, meter] of [ [ st, "tomatometer"] , [ sa, "audience" ] ])
+    {
+        if (ratingInfo["score"][meter])
+        {
+            s += img;
+            let scoreFrac = ratingInfo["score"][meter]/ratingInfo["max"];
+            s += (scoreFrac*10).toFixed(1);
+
+            if (ratingInfo["count"] > 1)
+                s += "!";
+        }
+    }
+    return s;
+}
+
+function formatMovieLens(ratingInfo)
+{
+    if (("type" in ratingInfo) && ratingInfo["type"] == "rated")
+        return formatGeneric(ratingInfo, iconMovieLens, (r) => `(${r})`);
+    return formatGeneric(ratingInfo, iconMovieLens);
+}
+
+function formatTmdb(ratingInfo)
+{
+    return formatGeneric(ratingInfo, iconTmdb);
+}
+
+let formatters = {
+    "imdb": formatImdb,
+    "rotten": formatRotten,
+    "tmdb": formatTmdb,
+    "movielens": formatMovieLens,
+};
 
 class MovieRatings
 {
@@ -65,16 +128,28 @@ class MovieRatings
             this.openRatingUrls(); 
             return false;
         }
-        
+
+        this.formatRatingInfo(boxart.ratingDiv);
+    }
+
+    formatRatingInfo(div)
+    {
         if (!this.ratingInfo)
-            boxart.ratingDiv.innerHTML = "Loading...";
-        else
         {
-            let html = "";
-            for (let rater in this.ratingInfo)
-                html += `${rater}: ${this.ratingInfo[rater]["score"]}<br>`;
-            boxart.ratingDiv.innerHTML = html;
+            div.innerHTML = "Loading...";
+            return;
         }
+
+        let html = "";
+        let keys = [];
+        for (let rater in this.ratingInfo)
+            keys.push(rater);
+        keys.sort();
+
+        for (let rater of keys)
+            html += formatters[rater](this.ratingInfo[rater]);
+
+        div.innerHTML = html;
     }
 
     openRatingUrls()
