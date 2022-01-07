@@ -1,6 +1,5 @@
 const request = require("request");
 const rater = require("./rater.js");
-const fs = require("fs");
 const util = require("./util.js");
 
 class MovieLensRater extends rater.Rater
@@ -11,157 +10,136 @@ class MovieLensRater extends rater.Rater
         this.jar = request.jar();
     }
 
-    init()
+    getMax()
     {
-        return new Promise((resolve, reject) => {
-            fs.readFile("movielensaccount.json", (err, data) => {
-                if (err)
-                {
-                    reject(err);
-                    return;
-                }
-
-                try
-                {
-                    let dict = JSON.parse(data); // See if it's valid json
-
-                    if (!("userName" in dict))
-                        throw "No 'userName' found in movielensaccount.json";
-                    if (!("password" in dict))
-                        throw "No 'password' found in movielensaccount.json";
-
-                    request.get({
-                        "url": "https://movielens.org/login",
-                        "jar": this.jar,
-                        "headers": { 
-                            "Content-Type": "application/json",
-                            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-                        },
-                    }, (err, response, data) => {
-                        if (err)
-                        {
-                            reject(err);
-                            return;
-                        }
-
-                        request.post({
-                            "url": "https://movielens.org/api/sessions",
-                            "jar": this.jar,
-                            "method": "post",
-                            "headers": { 
-                                "Content-Type": "application/json",
-                                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-                            },
-                            "body": JSON.stringify(dict),
-                        }, (err, response, data) => {
-                            if (err)
-                            {
-                                reject(err);
-                                return;
-                            }
-                            resolve();
-                        });
-                    });
-                }
-                catch(err)
-                {
-                    reject(err);
-                }
-            });
-        });
+        return 5.0;
     }
 
-    lookup(name)
+    async init()
     {
-        return new Promise((resolve, reject) => {
-            let url = "https://movielens.org/api/movies/explore?q=" + util.fixedEncodeURIComponent(name);
-            request.get({
-                "url": url,
+        let data = await util.readFile("movielensaccount.json");
+        let dict = JSON.parse(data);
+
+        if (!("userName" in dict))
+            throw "No 'userName' found in movielensaccount.json";
+        if (!("password" in dict))
+            throw "No 'password' found in movielensaccount.json";
+
+        await util.requestGet({
+                "url": "https://movielens.org/login",
                 "jar": this.jar,
-                "method": "get",
                 "headers": { 
-                    "Accept": "application/json, text/plain, */*",
+                    "Content-Type": "application/json",
                     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
                 },
-            }, (err, response, data) => {
-                
-                // Change url so the non-json version can be shown in browser
-                let url = "https://movielens.org/movies/explore?q=" + util.fixedEncodeURIComponent(name);
-                
-                if (err)
-                {
-                    reject(["Error loading search page", url]);
-                    return;
-                }
-
-                try
-                {
-                    let results = JSON.parse(data);
-                    results = results["data"]["searchResults"];
-
-                    let movieId = null;
-                    for (let r of results)
-                    {
-                        if (r["movie"]["title"].toLowerCase().trim() == name.toLowerCase().trim())
-                        {
-                            movieId = r["movieId"];
-                            break;
-                        }
-                    }
-
-                    if (movieId === null)
-                        throw "No matching movie name found";
-                    
-                    let url = "https://movielens.org/api/movies/" + movieId;
-                    request.get({
-                        "url": url,
-                        "jar": this.jar,
-                        "method": "get",
-                        "headers": { 
-                            "Accept": "application/json, text/plain, */*",
-                            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-                        },
-                    }, (err, response, data) => {
-                
-                        // Change url so the non-json version can be shown in browser
-                        let url = "https://movielens.org/movies/" + movieId;
-
-                        if (err)
-                        {
-                            console.log(err);
-                            reject(["Can't get movie page", url]);
-                        }
-
-                        try
-                        {
-                            let results = JSON.parse(data);
-                            let movieUserData = results["data"]["movieDetails"]["movieUserData"];
-                            let rating = movieUserData["rating"];
-                            let pred = movieUserData["prediction"];
-
-                            let s = null;
-                            if (rating === null)
-                                s = `${pred.toFixed(2)}, predicted`;
-                            else
-                                s = `${rating}, rated`;
-                            resolve([s, url]);
-                        }
-                        catch(err)
-                        {
-                            console.log(err);
-                            reject(["Can't get rating from movie page", url]);
-                        }
-                    });
-                }
-                catch(err)
-                {
-                    console.log("Error looking up " + name);
-                    console.log(data);
-                    console.log(err);
-                    reject(["Unable to find movie on search page", url]);
-                }
             });
-        });
+
+        await util.requestPost({
+                "url": "https://movielens.org/api/sessions",
+                "jar": this.jar,
+                "method": "post",
+                "headers": { 
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+                },
+                "body": JSON.stringify(dict)
+            });
+    }
+
+    async lookup(name)
+    {
+        let url = "https://movielens.org/api/movies/explore?q=" + util.fixedEncodeURIComponent(name);
+        let browserUrl = "https://movielens.org/movies/explore?q=" + util.fixedEncodeURIComponent(name);
+        let data = null;
+
+        try
+        {
+            data = await util.requestGet({
+                    "url": url,
+                    "jar": this.jar,
+                    "method": "get",
+                    "headers": { 
+                        "Accept": "application/json, text/plain, */*",
+                        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+                    },
+                });
+        }
+        catch(err)
+        {
+            console.log(err);
+            throw { "error": "Error loading search page", "url": browserUrl };
+        }
+
+        let movieId = null;
+
+        try
+        {
+            let results = JSON.parse(data);
+            results = results["data"]["searchResults"];
+
+            for (let r of results)
+            {
+                if (r["movie"]["title"].toLowerCase().trim() == name.toLowerCase().trim())
+                {
+                    movieId = r["movieId"];
+                    break;
+                }
+            }
+        }
+        catch(err)
+        {
+            console.log(err);
+            throw { "error": "Error looking for movie on search page", "url": browserUrl };
+        }
+
+        if (movieId === null)
+        {
+            console.log("Can't find movie on page: " + name);
+            console.log(data);
+            throw { "error": "No matching movie name found", "url": browserUrl };
+        }
+                    
+        url = "https://movielens.org/api/movies/" + movieId;
+        browserUrl = "https://movielens.org/movies/" + movieId;
+
+        try
+        {
+            data = await util.requestGet({
+                    "url": url,
+                    "jar": this.jar,
+                    "method": "get",
+                    "headers": { 
+                        "Accept": "application/json, text/plain, */*",
+                        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
+                    },
+                });
+        }
+        catch(err)
+        {
+            console.log(err);
+            throw { "error": "Error loading movie page", "url": browserUrl };
+        }
+
+        try
+        {
+            let results = JSON.parse(data);
+            let movieUserData = results["data"]["movieDetails"]["movieUserData"];
+            let rating = movieUserData["rating"];
+            let pred = movieUserData["prediction"];
+
+            let s = null;
+            if (rating === null)
+                s = { "rating": parseFloat(pred), "type": "predicted", "url": browserUrl };
+            else
+                s = { "rating": parseFloat(rating), "type": "rated", "url": browserUrl };
+
+            return s;
+        }
+        catch(err)
+        {
+            console.log(err);
+            throw { "error": "Can't get rating from movie page", "url": browserUrl };
+        }
     }
 }
 
@@ -171,9 +149,9 @@ async function main()
     let rater = new MovieLensRater();
     await rater.init();
 
-    let [ rating, url ] = await rater.lookup("The prestige");
-    console.log("Rating: " + rating);
-    console.log("Url: " + url);
+    let ratingInfo = await rater.lookup("The prestige");
+    console.log("Rating info:");
+    console.log(ratingInfo);
 }
 
 main()
