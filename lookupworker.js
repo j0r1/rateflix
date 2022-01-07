@@ -1,5 +1,5 @@
 const { WorkerData, parentPort } = require('worker_threads')
-
+const fs = require("fs");
 const imdb = require("./imdbrater.js");
 const rotten = require("./rottentomatoesrater.js");
 const movielens = require("./movielensrater.js");
@@ -8,9 +8,17 @@ const tmdb = require("./tmdbrater.js");
 const raterList = [
     new imdb.IMDBRater(),
     new rotten.RottenTomatoesRater(),
-    new movielens.MovieLensRater(),
     new tmdb.TMDBRater(),
 ];
+
+if (fs.existsSync("movielensaccount.json")) // Bit messy
+    raterList.push(new movielens.MovieLensRater());
+else
+{
+    console.log("File 'movielensaccount.json' doesn't exist, not enabling movielens rater");
+    console.log("To enable, create this file with contents:");
+    console.log('{"userName": "your.email@someaddress.com", "password": "yourmovielenspassword"}');
+}
 
 const raters = {};
 for (let r of raterList)
