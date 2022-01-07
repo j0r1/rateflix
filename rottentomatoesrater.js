@@ -12,6 +12,11 @@ class RottenTomatoesRater extends rater.Rater
         super("rotten");
     }
 
+    getMax()
+    {
+        return 100.0;
+    }
+
     async init()
     {
         return true;
@@ -34,7 +39,7 @@ class RottenTomatoesRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error loading search page", url ];
+            throw { "error": "Error loading search page", "url": url };
         }
 
         let movieUrl = null;
@@ -59,11 +64,11 @@ class RottenTomatoesRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error looking for movie url in search page", url ];
+            throw { "error": "Error looking for movie url in search page", "url": url };
         }
         
         if (!movieUrl)
-            throw [ "No movie url found in page", url ];
+            throw { "error": "No movie url found in page", "url": url };
 
         try
         {
@@ -78,19 +83,19 @@ class RottenTomatoesRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error loading movie url", movieUrl ];
+            throw { "error": "Error loading movie url", "url": movieUrl };
         }
 
         try
         {
             let dom = new JSDOM(text);
             let scoreBoard = dom.window.document.querySelector("score-board");
-            let tm = "";
-            let aud = "";
+            let tm = null;
+            let aud = null;
             if (scoreBoard)
             {
-                aud = scoreBoard.getAttribute("audiencescore");
-                tm = scoreBoard.getAttribute("tomatometerscore");
+                aud = parseFloat(scoreBoard.getAttribute("audiencescore"));
+                tm = parseFloat(scoreBoard.getAttribute("tomatometerscore"));
             }
             else
             {
@@ -100,21 +105,23 @@ class RottenTomatoesRater extends rater.Rater
                 {
                     let dataqa = s.getAttribute("data-qa");
                     if (dataqa === "tomatometer")
-                        tm = s.textContent.trim();
+                        tm = parseFloat(s.textContent.trim());
                     else if (dataqa === "audience-score")
-                        aud = s.textContent.trim();
+                        aud = parseFloat(s.textContent.trim());
                 }
             }
-            let result = "TM: " + tm + ", AUD: " + aud;
-            if (count > 1)
-                result += ` (${count} > 1!)`;
+            let result = {
+                "score": { "tomatometer": tm, "audience": aud },
+                "numhits": count,
+                "url": movieUrl
+            }
 
-            return [result, movieUrl];
+            return result;
         }
         catch(err)
         {
             console.log(err);
-            throw ["Error getting rotten tomatoes scores from page", movieUrl];
+            throw { "error": "Error getting rotten tomatoes scores from page", "url": movieUrl };
         }
 
     }
@@ -126,9 +133,9 @@ async function main()
     let rater = new RottenTomatoesRater();
     await rater.init();
 
-    let [ rating, url ] = await rater.lookup("The matrix reloaded");
-    console.log("Rating: " + rating);
-    console.log("Url: " + url);
+    let ratingInfo = await rater.lookup("heat");
+    console.log("Rating info:");
+    console.log(ratingInfo);
 }
 
 main()

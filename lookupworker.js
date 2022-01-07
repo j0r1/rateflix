@@ -35,8 +35,8 @@ function incomingMessage(msg)
     for (let r in raters)
     {
         let p = raters[r].lookup(name)
-        .then(([score, url]) => { results[r] = { "score": score, "url": url } })
-        .catch(([err, url]) => { results[r] = { "score": err, "url": url } });
+        .then((ratingInfo) => { results[r] = ratingInfo })
+        .catch((errInfo) => { results[r] = errInfo });
 
         promises.push(p);
     }

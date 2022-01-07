@@ -12,6 +12,11 @@ class TMDBRater extends rater.Rater
         super("tmdb");
     }
 
+    getMax()
+    {
+        return 100.0;
+    }
+
     async init()
     {
         return true;
@@ -31,10 +36,11 @@ class TMDBRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error loading search page", url ];
+            throw { "error": "Error loading search page", "url": url };
         }
 
         let movieUrl = null;
+        let isMovie = false;
 
         try
         {
@@ -43,11 +49,14 @@ class TMDBRater extends rater.Rater
             let h = dom.window.document.querySelector("a.result h2");
             let titleHref = h.parentElement.getAttribute("href");
             movieUrl = "https://www.themoviedb.org" + titleHref ;
+
+            if (titleHref.startsWith("/movie/"))
+                isMovie = true;
         }
         catch(err)
         {
             console.log(err);
-            throw [ "Error looking for movie url in page", url ];
+            throw { "error": "Error looking for movie url in page", "url": url };
         }
 
         try
@@ -59,7 +68,7 @@ class TMDBRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error fetching movie url", movieUrl ];
+            throw { "error": "Error fetching movie url", "url": movieUrl };
         }
 
         try
@@ -67,13 +76,18 @@ class TMDBRater extends rater.Rater
             //console.log(text);
             let dom = new JSDOM(text);
             let div = dom.window.document.querySelector("div.user_score_chart");
-            let pct = div.getAttribute("data-percent");
-            return [pct, movieUrl];
+            let pct = parseFloat(div.getAttribute("data-percent"));
+
+            return {
+                "score": pct,
+                "url": movieUrl,
+                "ismovie": isMovie
+            }
         }
         catch(err)
         {
             console.log(err);
-            throw ["Error getting imdb score from page", url];
+            throw { "error": "Error getting tmdb score from page", "url": url};
         }
     }
 };
@@ -83,9 +97,9 @@ async function main()
     let rater = new TMDBRater();
     await rater.init();
 
-    let [ rating, url ] = await rater.lookup("The matrix reloaded");
-    console.log("Rating: " + rating);
-    console.log("Url: " + url);
+    let ratingInfo = await rater.lookup("The matrix reloaded");
+    console.log("Rating:");
+    console.log(ratingInfo);
 }
 
 main()

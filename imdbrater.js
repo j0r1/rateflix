@@ -12,6 +12,11 @@ class IMDBRater extends rater.Rater
         super("imdb");
     }
 
+    getMax()
+    {
+        return 10.0;
+    }
+
     async init()
     {
         return true;
@@ -31,7 +36,7 @@ class IMDBRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error loading search page", url ];
+            throw { "error": "Error loading search page", "url": url };
         }
 
         let movieUrl = null;
@@ -47,7 +52,7 @@ class IMDBRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error looking for movie url in page", url ];
+            throw { "error": "Error looking for movie url in page", "url": url };
         }
 
         try
@@ -58,7 +63,7 @@ class IMDBRater extends rater.Rater
         catch(err)
         {
             console.log(err);
-            throw [ "Error fetching movie url", movieUrl ];
+            throw { "error": "Error fetching movie url", "url": movieUrl };
         }
 
         try
@@ -77,12 +82,12 @@ class IMDBRater extends rater.Rater
             }
 
             let span = div.querySelector("span");
-            return [span.textContent, movieUrl];
+            return { "score": parseFloat(span.textContent), "url": movieUrl };
         }
         catch(err)
         {
             console.log(err);
-            throw ["Error getting imdb score from page", url];
+            throw { "error": "Error getting imdb score from page", "url": url };
         }
     }
 };
@@ -93,9 +98,9 @@ async function main()
     let rater = new IMDBRater();
     await rater.init();
 
-    let [ rating, url ] = await rater.lookup("The matrix reloaded");
-    console.log("Rating: " + rating);
-    console.log("Url: " + url);
+    let ratingInfo = await rater.lookup("The matrix reloaded");
+    console.log("Rating info:");
+    console.log(ratingInfo);
 }
 
 main()
