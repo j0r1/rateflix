@@ -92,6 +92,7 @@ class TMDBRater extends rater.Rater
     }
 };
 
+/*
 async function main()
 {
     let rater = new TMDBRater();
@@ -105,5 +106,6 @@ async function main()
 main()
 .then(() => console.log("Finished"))
 .catch((e) => { console.log("Error in main:"); console.log(e); })
+*/
 
 exports.TMDBRater = TMDBRater;
