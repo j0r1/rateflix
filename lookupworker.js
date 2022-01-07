@@ -3,11 +3,13 @@ const { WorkerData, parentPort } = require('worker_threads')
 const imdb = require("./imdbrater.js");
 const rotten = require("./rottentomatoesrater.js");
 const movielens = require("./movielensrater.js");
+const tmdb = require("./tmdbrater.js");
 
 const raterList = [
     new imdb.IMDBRater(),
     new rotten.RottenTomatoesRater(),
     new movielens.MovieLensRater(),
+    new tmdb.TMDBRater(),
 ];
 
 const raters = {};
@@ -35,7 +37,7 @@ function incomingMessage(msg)
     for (let r in raters)
     {
         let p = raters[r].lookup(name)
-        .then((ratingInfo) => { results[r] = ratingInfo })
+        .then((ratingInfo) => { results[r] = ratingInfo; results[r]["max"] = raters[r].getMax(); })
         .catch((errInfo) => { results[r] = errInfo });
 
         promises.push(p);
