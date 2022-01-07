@@ -109,7 +109,7 @@ class RottenTomatoesRater extends rater.Rater
             if (count > 1)
                 result += ` (${count} > 1!)`;
 
-            return [result, url];
+            return [result, movieUrl];
         }
         catch(err)
         {
