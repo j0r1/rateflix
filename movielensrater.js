@@ -129,9 +129,9 @@ class MovieLensRater extends rater.Rater
 
             let s = null;
             if (rating === null)
-                s = { "rating": parseFloat(pred), "type": "predicted", "url": browserUrl };
+                s = { "score": parseFloat(pred), "type": "predicted", "url": browserUrl };
             else
-                s = { "rating": parseFloat(rating), "type": "rated", "url": browserUrl };
+                s = { "score": parseFloat(rating), "type": "rated", "url": browserUrl };
 
             return s;
         }
