@@ -308,6 +308,79 @@ function checkVisible(elm)
     return !(rect.bottom < 0 || rect.top - viewHeight >= 0);
 }
 
+class PopupState
+{
+    constructor() { this.visible = false; }
+    updateStatus(visibleMovie)
+    {
+        if (visibleMovie === null)
+        {
+            if (this.visibleMovie == null)
+                return;
+            this.visibleMovie = null;
+        }
+        else
+        {
+            if (this.visibleMovie !== null)
+            {
+                // Make sure we have the most recent movie name
+                this.visibleMovie = visibleMovie;
+                return;
+            }
+
+            this.visibleMovie = visibleMovie;
+        }
+
+        this.onPopupVisibilityChanged();
+    }
+
+    onPopupVisibilityChanged()
+    {
+        if (this.visibleMovie)
+            document.onkeypress = (e) => this.onKeyPress(e);
+        else
+            document.onkeypress = null;
+    }
+
+    onKeyPress(evt)
+    {
+        if (!evt)
+            return;
+        if (!this.visibleMovie)
+            return;
+
+        if (!(this.visibleMovie in allMovies))
+            return;
+
+        if (evt.key === "d") // delete entry
+            allMovies[this.visibleMovie].setRatingInfo(null);
+        else if (evt.key === "r") // show all rating info, for debugging
+        {
+            let name = this.visibleMovie;
+            let ratings = allMovies[name].getRatingInfo();
+            let tab = window.open('about:blank', '_blank');
+            tab.document.write(`
+<!doctype html>
+<html lang="en">
+   <body>
+       <pre>
+Title: '${name}'
+${JSON.stringify(ratings, null, 2)}
+       </pre>
+   </body>
+</html>`);
+            tab.document.close(); 
+        }
+    }
+};
+
+function popupVisibilityChanged(visible)
+{
+    console.log("Popup status changed to " + visible);
+}
+
+let popupState = new PopupState();
+
 let allMovies = { }
 let visibleMovies = []
 
@@ -330,6 +403,8 @@ function visibleMoviesCheck()
     }
     visibleMovies = []
 
+    let popupMovie = null;
+
     // Build new list of visible movies
     let images = document.querySelectorAll("img.previewModal--boxart, img.boxart-image");
     for (let i of images)
@@ -343,6 +418,7 @@ function visibleMoviesCheck()
         {
             name = i.getAttribute("alt");
             divToAddTo = par.parentElement.parentElement;
+            popupMovie = name;
         }
         else
         {
@@ -380,6 +456,7 @@ function visibleMoviesCheck()
     startRatingRequestIfNeeded(visibleMovies);
 
     saveToLocalStorage();
+    popupState.updateStatus(popupMovie);
 
     /*
     // Debug: list visible movies
