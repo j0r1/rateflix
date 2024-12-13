@@ -86,30 +86,27 @@ class RottenTomatoesRater extends rater.Rater
             throw { "error": "Error loading movie url", "url": movieUrl };
         }
 
+        const extractRating = (elem) => {
+            if (!elem)
+                return null;
+
+            let s = elem.textContent;
+            let x = parseFloat(s);
+            return x;
+        }
+
         try
         {
             let dom = new JSDOM(text);
-            let scoreBoard = dom.window.document.querySelector("score-board");
             let tm = null;
             let aud = null;
-            if (scoreBoard)
-            {
-                aud = parseFloat(scoreBoard.getAttribute("audiencescore"));
-                tm = parseFloat(scoreBoard.getAttribute("tomatometerscore"));
-            }
-            else
-            {
-                let spans = dom.window.document.querySelectorAll("span");
 
-                for (let s of spans)
-                {
-                    let dataqa = s.getAttribute("data-qa");
-                    if (dataqa === "tomatometer")
-                        tm = parseFloat(s.textContent.trim());
-                    else if (dataqa === "audience-score")
-                        aud = parseFloat(s.textContent.trim());
-                }
-            }
+            const tmEl = dom.window.document.querySelector('rt-text[slot="criticsScore"]');
+            const audEl = dom.window.document.querySelector('rt-text[slot="audienceScore"]');
+
+            tm = extractRating(tmEl);
+            aud = extractRating(audEl);
+
             let result = {
                 "score": { "tomatometer": tm, "audience": aud },
                 "numhits": count,

@@ -1,12 +1,12 @@
 const { WorkerData, parentPort } = require('worker_threads')
 const fs = require("fs");
-const imdb = require("./imdbrater.js");
+//const imdb = require("./imdbrater.js"); // can't seem to get this to work anymore
 const rotten = require("./rottentomatoesrater.js");
 const movielens = require("./movielensrater.js");
 const tmdb = require("./tmdbrater.js");
 
 const raterList = [
-    new imdb.IMDBRater(),
+    //new imdb.IMDBRater(),
     new rotten.RottenTomatoesRater(),
     new tmdb.TMDBRater(),
 ];
@@ -53,7 +53,8 @@ function incomingMessage(msg)
 
     Promise.allSettled(promises).then(() => {
         parentPort.postMessage(JSON.stringify(movieResults));
-        console.log(movieResults);
+        //console.log(movieResults);
+        console.log(JSON.stringify(movieResults, null, 2));
     });
 }
 
